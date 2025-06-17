@@ -1,4 +1,3 @@
---- START OF FILE script.js ---
 window.onerror = (msg, url, line, col, error) => {
     console.error("グローバルエラー発生:", { message: msg, url: url, line: line, column: col, error: error });
 };
@@ -734,4 +733,3 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     initGame();
 });
---- END OF FILE script.js ---

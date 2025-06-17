@@ -1,4 +1,3 @@
---- START OF FILE README.md ---
 # 合成パズルゲーム
 
 ## 概要
@@ -59,4 +58,3 @@
 
 ## ライセンス
 MITライセンス
---- END OF FILE README.md ---
