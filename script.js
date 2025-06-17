@@ -49,7 +49,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingElement = document.getElementById('loading');
 
     // --- 関数定義 ---
-    const getFontSize = (level = 0) => `${38 + 4 * level}px`;
+    const getFontSize = (level = 0) => {
+        // CSSから動的にセルのサイズを取得
+        const cellSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')) || 60;
+        // セルサイズに応じて基準となるフォントサイズを計算 (元の60pxセルで38pxだった比率を維持)
+        const baseFontSize = cellSize * (38 / 60);
+        return `${baseFontSize + 4 * level}px`;
+    };
 
     const showChainEffect = (count) => {
         const boardWrapper = boardElement.parentElement;
@@ -71,8 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const fromCell = document.querySelector(`.cell[data-row="${fromRow}"][data-col="${fromCol}"]`);
             const pieceSpan = fromCell?.querySelector('.piece');
             if (!pieceSpan) return resolve();
-            const deltaX = (toCol - fromCol) * (fromCell.offsetWidth + 2);
-            const deltaY = (toRow - fromRow) * (fromCell.offsetHeight + 2);
+
+            // gapとセルの幅を動的に取得して移動距離を計算
+            const boardGap = parseFloat(getComputedStyle(boardElement).gap);
+            const deltaX = (toCol - fromCol) * (fromCell.offsetWidth + boardGap);
+            const deltaY = (toRow - fromRow) * (fromCell.offsetHeight + boardGap);
+
             pieceSpan.style.setProperty('--tx', `${deltaX}px`);
             pieceSpan.style.setProperty('--ty', `${deltaY}px`);
             pieceSpan.classList.add('suck-in-animation');
@@ -136,10 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             fromCell.appendChild(piece);
     
-            const boardStyle = getComputedStyle(boardElement);
-            const gap = parseFloat(boardStyle.gap);
-            const deltaX = (toCol - fromCol) * (fromCell.offsetWidth + gap);
-            const deltaY = (toRow - fromRow) * (fromCell.offsetHeight + gap);
+            // gapとセルの幅を動的に取得して移動距離を計算
+            const boardGap = parseFloat(getComputedStyle(boardElement).gap);
+            const deltaX = (toCol - fromCol) * (fromCell.offsetWidth + boardGap);
+            const deltaY = (toRow - fromRow) * (fromCell.offsetHeight + boardGap);
     
             requestAnimationFrame(() => {
                 piece.style.transition = 'transform 0.3s ease-out';
@@ -277,7 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ★★★ここから修正★★★
     const refillBag = (bagType) => {
         let newBag = [];
         if (bagType === 'normal') {
@@ -333,7 +342,6 @@ document.addEventListener('DOMContentLoaded', () => {
             nextPiece = normalBag.pop();
         }
     };
-    // ★★★ここまで修正★★★
 
     const checkGameOver = () => {
         for (let r = 0; r < BOARD_SIZE; r++) {
