@@ -1,0 +1,64 @@
+--- START OF FILE index.html ---
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>フルーツバスケット パズル</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="loading" class="loading"></div>
+
+    <div class="game-container">
+        <h1>フルーツバスケット</h1>
+        <div class="score-container">
+            <div>スコア: <span id="current-score">0</span></div>
+            <div>ハイスコア: <span id="high-score">0</span></div>
+        </div>
+
+        <div class="controls-container">
+            <button id="rule-button" aria-label="ルール説明を表示">あそびかた</button>
+            <button id="shop-button" aria-label="アイテムショップを開く">アイテム</button>
+            <button id="restart-button" aria-label="ゲームをリスタート">リスタート</button>
+        </div>
+
+        <div class="board-wrapper">
+            <div class="board"></div>
+        </div>
+        <div id="hint-area" class="hint-area"></div>
+    </div>
+
+    <div id="rule-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>あそびかた</h2>
+            <p><strong>基本ルール:</strong><br>同じフルーツを3つ以上つなげて、進化させよう！</p>
+            <p><strong>おじゃまピース(👨):</strong><br>このピースは勝手に動き回るよ。ピースや壁で囲むか、「くま(🐻)」アイテムを使うと「ごはん(🍚)」に変化！ごはんを進化させると高得点！</p>
+            <p><strong>ホールド:</strong><br>左上のお皿をタップすると、次のピースを1つだけキープできるよ。</p>
+            <p><strong>アイテム:</strong><br>「アイテム」ボタンから、便利なアイテムが使えるよ。</p>
+            <p><strong>ゲームオーバー:</strong><br>ボードがフルーツでいっぱいになったら終了だよ。ハイスコアを目指してがんばってね！</p>
+        </div>
+    </div>
+
+    <div id="shop-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>アイテム</h2>
+            <div id="item-list"></div>
+        </div>
+    </div>
+
+    <div id="game-over-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>ゲームオーバー</h2>
+            <p>最終スコア: <span id="final-score">0</span></p>
+            <button id="restart-button-modal" aria-label="ゲームをもう一度プレイ">もういちど</button>
+        </div>
+    </div>
+
+    <script src="script.js" defer></script>
+</body>
+</html>
+--- END OF FILE index.html ---

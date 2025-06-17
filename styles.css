@@ -1,0 +1,279 @@
+--- START OF FILE styles.css ---
+/* ゲーム全体のスタイル */
+body {
+    font-family: 'Arial', 'Segoe UI Emoji', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    margin: 0;
+    padding-top: 20px;
+    background-color: #f5deb3; /* 木目調背景 */
+    box-sizing: border-box;
+}
+
+.game-container {
+    text-align: center;
+    background-color: #fffaf0; /* フローラルホワイト */
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    width: 380px;
+}
+
+h1 {
+    font-size: 28px;
+    color: #d2691e; /* チョコレート色 */
+    margin: 0 0 15px 0;
+}
+
+.score-container {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 15px;
+    font-size: 18px;
+    color: #8B4513; /* サドルブラウン */
+    font-weight: bold;
+}
+
+.controls-container {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    background-color: #ffb6c1; /* ライトピンク */
+    color: white;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+@media (hover: hover) {
+    button:hover { background-color: #ff69b4; transform: translateY(-1px); }
+}
+
+button:active {
+    transform: translateY(1px);
+}
+button:disabled { background-color: #cccccc; cursor: not-allowed; transform: none; }
+
+.board-wrapper {
+    position: relative;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(6, 60px);
+    grid-template-rows: repeat(6, 60px);
+    gap: 2px;
+    background-color: #dcdcdc;
+    padding: 5px;
+    border-radius: 10px;
+    transition: box-shadow 0.3s ease-out;
+}
+
+@keyframes chain-glow {
+    50% { box-shadow: 0 0 20px 8px rgba(255, 215, 0, 0.9); }
+}
+.board.chain-active {
+    animation: chain-glow 0.6s ease-out;
+}
+
+.cell {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    position: relative;
+    user-select: none;
+    overflow: visible;
+}
+.cell-color-a { background-color: #ffd1dc; }
+.cell-color-b { background-color: #d4f4dd; }
+
+.cell.occupied {
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+}
+
+.cell.hold {
+    background-color: #add8e6;
+}
+.cell.hold::before {
+    content: '🍽️'; font-size: 50px; position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    z-index: 1; opacity: 0.8;
+}
+.cell.hold .piece {
+    font-size: 28px; position: relative; z-index: 2;
+}
+
+.cell.obstacle { background-color: #A9A9A9; }
+
+.board.item-mode .cell:not(.occupied):not(.hold) {
+    cursor: pointer;
+}
+
+@media (hover: hover) {
+    .board.item-mode .cell:not(.occupied):not(.hold):hover {
+        box-shadow: inset 0 0 10px rgba(255, 105, 180, 0.7);
+    }
+}
+
+.piece {
+    font-size: 40px;
+    line-height: 1;
+    transition: font-size 0.2s;
+    will-change: transform, opacity;
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes pulse {
+    50% { transform: scale(1.3); }
+}
+.pulse { animation: pulse 1s infinite ease-in-out; }
+
+@keyframes suck-in {
+    100% { transform: translate(var(--tx), var(--ty)) scale(0.1); opacity: 0; }
+}
+.suck-in-animation {
+    animation: suck-in 0.2s ease-in forwards;
+    z-index: 5;
+}
+
+@keyframes merge-effect {
+    50% { transform: scale(1.3) rotate(15deg); }
+}
+.piece.merge-animation {
+    animation: merge-effect 0.3s ease-out;
+    z-index: 10;
+}
+
+@keyframes merge-cell-glow {
+    50% { box-shadow: 0 0 15px 5px rgba(255, 215, 0, 0.8); }
+}
+.merge-cell {
+    animation: merge-cell-glow 0.3s ease-out;
+}
+
+@keyframes particle-fly {
+    100% { transform: translate(var(--tx), var(--ty)); opacity: 0; }
+}
+.particle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: #ffd700;
+    border-radius: 50%;
+    animation: particle-fly 0.35s ease-out forwards;
+    z-index: 11;
+}
+
+@keyframes score-popup {
+    100% { transform: translateY(-30px); opacity: 0; }
+}
+.score-popup {
+    position: absolute;
+    color: #ff4500;
+    font-size: 18px;
+    font-weight: bold;
+    animation: score-popup 0.7s ease-out forwards;
+    z-index: 20;
+    pointer-events: none;
+}
+
+@keyframes show-chain-text {
+    0% { transform: scale(0.5); opacity: 0; }
+    20% { transform: scale(1.2); opacity: 1; }
+    80% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1); opacity: 0; }
+}
+.chain-display {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 50px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 5px #ff8c00, 0 0 10px #ff8c00, 0 0 15px #ff8c00;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+}
+.chain-display.show {
+    animation: show-chain-text 1s ease-out forwards;
+}
+
+#hint-area { margin-top: 15px; text-align: left; }
+#hint-area h3 { margin: 10px 0 5px; color: #d2691e; }
+#hint-area p { margin: 5px 0; font-size: 14px; color: #8B4513; word-break: break-all; }
+
+/* モーダル */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+.modal-content {
+    background-color: #fffaf0;
+    padding: 20px;
+    border-radius: 15px;
+    max-width: 400px;
+    width: 90%;
+    position: relative;
+    text-align: center;
+}
+.modal-content h2 { color: #d2691e; }
+.close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+    cursor: pointer;
+    color: #8B4513;
+}
+#item-list button { display: block; width: 100%; margin: 8px 0; background-color: #d4f4dd; color: #333; }
+
+#loading {
+    display: flex;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(255,255,255,0.7);
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+#loading::after {
+    content: '🍉';
+    font-size: 80px;
+    animation: pulse 1s infinite;
+}
+--- END OF FILE styles.css ---
