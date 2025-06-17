@@ -22,15 +22,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const ITEMS = {
         sun: { name: 'sun', emoji: '☀️', effect: '合成おてつだい', isItem: true, level: 5, initialCount: 5 },
         bear: { name: 'bear', emoji: '🐻', effect: 'ピース消去', isItem: true, initialCount: 5 },
-        cherry: { name: 'cherry', emoji: '🍒', effect: 'さくらんぼを置く', isItem: true, initialCount: 10 },
-        orange: { name: 'orange', emoji: '🍊', effect: 'みかんを置く', isItem: true, initialCount: 10 },
-        grape: { name: 'grape', emoji: '🍇', effect: 'ぶどうを置く', isItem: true, initialCount: 10 }
+        cherry: { name: 'cherry', emoji: '🍒', effect: 'さくらんぼを置く', isItem: true, initialCount: 10, ...FRUIT_PIECES[0] },
+        orange: { name: 'orange', emoji: '🍊', effect: 'みかんを置く', isItem: true, initialCount: 10, ...FRUIT_PIECES[1] },
+        grape: { name: 'grape', emoji: '🍇', effect: 'ぶどうを置く', isItem: true, initialCount: 10, ...FRUIT_PIECES[2] }
     };
     const ALL_PIECES = [...FRUIT_PIECES, ...RICE_PIECES, JAMMER_MAN];
 
     // --- ゲーム状態変数 ---
     let board, currentScore, highScore, nextPiece, heldPiece, gameOver, lastPlaced, pendingPiece, activeItem, chainCount, itemCounts, isProcessing;
     let lastChainScore = 0;
+    let normalBag = [];
+    let rareBag = [];
+    let hasRareBagChance = false;
 
     // --- DOM要素 ---
     const boardElement = document.querySelector('.board');
@@ -101,33 +104,55 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const showScorePopup = (row, col, score, chain) => {
+    const showScorePopup = (row, col, score, chain, multi = 1) => {
         const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
         if (!cell) return;
         const popup = document.createElement('div');
         popup.className = 'score-popup';
-        popup.textContent = `+${score}${chain > 1 ? ` x${chain}` : ''}`;
+        let text = `+${score}`;
+        if (chain > 1) text += ` x${chain}Chain`;
+        if (multi > 1) text += ` x${multi}Multi`;
+        popup.textContent = text;
         cell.appendChild(popup);
-        setTimeout(() => { if (popup.parentNode) popup.parentNode.removeChild(popup); }, 700);
+        setTimeout(() => { if (popup.parentNode) popup.parentNode.removeChild(popup); }, 1000);
     };
-
+    
     const animatePieceMove = (fromRow, fromCol, toRow, toCol, pieceData) => {
         return new Promise(resolve => {
             const fromCell = document.querySelector(`.cell[data-row="${fromRow}"][data-col="${fromCol}"]`);
-            if (!fromCell) return resolve();
+            if (!fromCell) {
+                resolve();
+                return;
+            }
+    
+            fromCell.style.zIndex = '10';
+    
             const piece = document.createElement('span');
             piece.className = 'piece';
             piece.textContent = pieceData.emoji;
             piece.style.fontSize = getFontSize(pieceData.level);
+            if (pieceData.emoji === JAMMER_MAN.emoji) {
+                piece.style.transform = 'scale(1.2)';
+            }
             fromCell.appendChild(piece);
-            const deltaX = (toCol - fromCol) * (fromCell.offsetWidth + 2);
-            const deltaY = (toRow - fromRow) * (fromCell.offsetHeight + 2);
+    
+            const boardStyle = getComputedStyle(boardElement);
+            const gap = parseFloat(boardStyle.gap);
+            const deltaX = (toCol - fromCol) * (fromCell.offsetWidth + gap);
+            const deltaY = (toRow - fromRow) * (fromCell.offsetHeight + gap);
+    
             requestAnimationFrame(() => {
                 piece.style.transition = 'transform 0.3s ease-out';
-                piece.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                let scale = (pieceData.emoji === JAMMER_MAN.emoji) ? 'scale(1.2)' : '';
+                piece.style.transform = `translate(${deltaX}px, ${deltaY}px) ${scale}`;
             });
+    
             piece.addEventListener('transitionend', () => {
-                if (piece.parentNode) piece.parentNode.removeChild(piece);
+                fromCell.style.zIndex = '';
+                
+                if (piece.parentNode) {
+                    piece.parentNode.removeChild(piece);
+                }
                 resolve();
             }, { once: true });
         });
@@ -135,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const findConnectedGroup = (startRow, startCol, searchBoard) => {
         const pieceToMatch = searchBoard[startRow]?.[startCol];
-        if (!pieceToMatch || pieceToMatch.isObstacle || pieceToMatch.state === 'roaming' || pieceToMatch.isItem) return [];
+        if (!pieceToMatch || pieceToMatch.isObstacle || pieceToMatch.state === 'roaming' || pieceToMatch.state === 'just_placed' || pieceToMatch.isItem) return [];
         const group = [];
         const queue = [[startRow, startCol]];
         const visited = new Set([`${startRow},${startCol}`]);
@@ -217,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
                 const cell = document.createElement('div');
-                cell.className = `cell ${(r + c) % 2 === 0 ? 'cell-color-a' : 'cell-color-b'}`;
+                cell.className = `cell`;
                 cell.dataset.row = r;
                 cell.dataset.col = c;
                 const pieceSpan = document.createElement('span');
@@ -227,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (heldPiece) pieceSpan.textContent = heldPiece.emoji;
                 } else if (board[r][c]) {
                     const piece = board[r][c];
-                    if (piece.state !== 'roaming') {
+                    if (piece.state !== 'roaming' && piece.state !== 'just_placed') {
                         cell.classList.add('occupied');
                     }
                     pieceSpan.textContent = piece.emoji;
@@ -235,15 +260,51 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (piece.isObstacle) {
                         cell.classList.add('obstacle');
                     }
+                    if (piece.emoji === JAMMER_MAN.emoji) {
+                        pieceSpan.style.transform = 'scale(1.2)';
+                    }
                 } else if (pieceToPreview && nextPiecePos?.row === r && nextPiecePos?.col === c) {
                     pieceSpan.classList.add('pulse');
                     pieceSpan.textContent = pieceToPreview.emoji;
                     pieceSpan.style.fontSize = getFontSize(pieceToPreview.level || 0);
+                    if (pieceToPreview.emoji === JAMMER_MAN.emoji) {
+                        pieceSpan.style.transform = 'scale(1.2)';
+                    }
                 }
                 cell.appendChild(pieceSpan);
                 boardElement.appendChild(cell);
             }
         }
+    };
+
+    // ★★★ここから修正★★★
+    const refillBag = (bagType) => {
+        let newBag = [];
+        if (bagType === 'normal') {
+            newBag = [
+                {...FRUIT_PIECES[0]}, {...FRUIT_PIECES[0]}, {...FRUIT_PIECES[0]}, {...FRUIT_PIECES[0]}, {...FRUIT_PIECES[0]}, // 🍒 x5
+                {...FRUIT_PIECES[1]}, {...FRUIT_PIECES[1]}, {...FRUIT_PIECES[1]}, // 🍊 x3
+                {...FRUIT_PIECES[2]}, {...FRUIT_PIECES[2]},                      // 🍇 x2
+                {...FRUIT_PIECES[3]},                                           // 🍎 x1
+                {...JAMMER_MAN}, {...JAMMER_MAN},                                  // 👨 x2
+                {...ITEMS.sun},                                                   // ☀️ x1
+                {...ITEMS.bear}                                                   // 🐻 x1
+            ];
+        } else { // rare
+            newBag = [
+                {...FRUIT_PIECES[1]},
+                {...FRUIT_PIECES[2]}, {...FRUIT_PIECES[2]},
+                {...FRUIT_PIECES[3]},
+                {...ITEMS.sun},
+                {...ITEMS.bear} // 熊アイテムを追加
+            ];
+        }
+
+        for (let i = newBag.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [newBag[i], newBag[j]] = [newBag[j], newBag[i]];
+        }
+        return newBag;
     };
 
     const generateNextPiece = () => {
@@ -252,23 +313,27 @@ document.addEventListener('DOMContentLoaded', () => {
             pendingPiece = null;
             return;
         }
-        try {
-            const rand = Math.random();
-            if (rand < 0.20) { nextPiece = { ...JAMMER_MAN }; }
-            else if (rand < 0.25) { nextPiece = { ...FRUIT_PIECES[3] }; }
-            else if (rand < 0.30) { nextPiece = { ...ITEMS.sun }; }
-            else if (rand < 0.35) { nextPiece = { ...ITEMS.bear }; }
-            else if (rand < 0.68) { nextPiece = { ...FRUIT_PIECES[0] }; }
-            else if (rand < 0.92) { nextPiece = { ...FRUIT_PIECES[1] }; }
-            else { nextPiece = { ...FRUIT_PIECES[2] }; }
-            if (!nextPiece || !nextPiece.emoji) {
-                throw new Error("生成されたピースが無効です。");
+
+        if (hasRareBagChance) {
+            if (rareBag.length === 0) {
+                rareBag = refillBag('rare');
             }
-        } catch (error) {
-            console.error("ピース生成中にエラー:", error);
-            nextPiece = { ...FRUIT_PIECES[0] };
+            nextPiece = rareBag.pop();
+            hasRareBagChance = false;
+        } else {
+            if (normalBag.length === 0) {
+                normalBag = refillBag('normal');
+            }
+            nextPiece = normalBag.pop();
+        }
+
+        if (!nextPiece || !nextPiece.emoji) {
+            console.error("袋から無効なピースが取り出されました。");
+            normalBag = refillBag('normal');
+            nextPiece = normalBag.pop();
         }
     };
+    // ★★★ここまで修正★★★
 
     const checkGameOver = () => {
         for (let r = 0; r < BOARD_SIZE; r++) {
@@ -307,13 +372,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mergesThisTurn.length > 0) {
                 hasChainReaction = true;
                 chainCount++;
-                if (animate && chainCount > 1) showChainEffect(chainCount);
+                if (animate && chainCount > 1) {
+                    showChainEffect(chainCount);
+                    hasRareBagChance = true;
+                }
+
+                const multiBonus = mergesThisTurn.length > 1 ? (1 + (mergesThisTurn.length -1) * 0.5) : 1;
+                
                 for (const { group, piece, pieceSet } of mergesThisTurn) {
                     const nextIndex = pieceSet.findIndex(p => p.emoji === piece.emoji) + 1;
                     const evolvedPiece = pieceSet[nextIndex];
-                    const { totalScore: score, newLastChainScore } = calculateGroupScore(evolvedPiece, chainCount, lastChainScore);
-                    lastChainScore = newLastChainScore;
+                    let { totalScore: score } = calculateGroupScore(evolvedPiece, chainCount, lastChainScore);
+                    score = Math.floor(score * multiBonus);
+                    lastChainScore = score;
                     currentScore += score;
+
                     let target;
                     const lastPlacedInGroup = placement && group.find(({r, c}) => r === placement.row && c === placement.col);
                     if (lastPlacedInGroup) {
@@ -330,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (nextIndex < pieceSet.length) board[targetRow][targetCol] = { ...evolvedPiece };
                     if (animate) {
                         renderBoard();
-                        showScorePopup(targetRow, targetCol, score, chainCount);
+                        showScorePopup(targetRow, targetCol, score, chainCount, mergesThisTurn.length);
                         if (board[targetRow][targetCol]) {
                             await applyMergeAnimation(targetRow, targetCol);
                         }
@@ -346,161 +419,198 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const moveAndCaptureJammers = async (tempBlockedCells = new Set()) => {
-        const jammers = [];
+        const allJammerPositions = [];
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
-                if (board[r][c]?.state === 'roaming') {
-                    jammers.push({ from: { r, c }, piece: board[r][c] });
+                if (board[r][c]?.isJammer && board[r][c]?.state !== 'captured') {
+                    allJammerPositions.push({ r, c });
                 }
             }
         }
-        if (jammers.length === 0) return;
-
-        const jammersToMove = [];
+        if (allJammerPositions.length === 0) return;
+    
         const jammersToCapture = [];
-
-        for (const jammer of jammers) {
-            const queue = [[jammer.from.r, jammer.from.c]];
-            const visited = new Set([`${jammer.from.r},${jammer.from.c}`]);
+        const jammersToMove = [];
+    
+        for (const jammerPos of allJammerPositions) {
+            const { r, c } = jammerPos;
+            const queue = [[r, c]];
+            const visited = new Set([`${r},${c}`]);
             let canEscape = false;
+    
             while (queue.length > 0) {
-                const [r, c] = queue.shift();
-                if (!board[r][c] && (r !== HOLD_CELL.row || c !== HOLD_CELL.col) && !tempBlockedCells.has(`${r},${c}`)) {
-                    canEscape = true;
-                    break;
-                }
-                [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([nr, nc]) => {
-                    const key = `${nr},${nc}`;
-                    if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && !visited.has(key)) {
-                        if (nr === HOLD_CELL.row && nc === HOLD_CELL.col) return;
-                        if (tempBlockedCells.has(key)) return;
-                        const neighborPiece = board[nr][nc];
-                        if (!neighborPiece || neighborPiece.state === 'roaming') {
-                            visited.add(key);
-                            queue.push([nr, nc]);
-                        }
+                const [curR, curC] = queue.shift();
+                for (const [nr, nc] of [[curR - 1, curC], [curR + 1, curC], [curR, curC - 1], [curR, curC + 1]]) {
+                    const neighborKey = `${nr},${nc}`;
+    
+                    if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE || visited.has(neighborKey) || tempBlockedCells.has(neighborKey)) {
+                        continue;
                     }
-                });
+                    
+                    const neighborPiece = board[nr][nc];
+    
+                    if (!neighborPiece && (nr !== HOLD_CELL.row || nc !== HOLD_CELL.col)) {
+                        canEscape = true;
+                        break;
+                    }
+    
+                    if (neighborPiece?.state === 'roaming' || neighborPiece?.state === 'just_placed') {
+                        visited.add(neighborKey);
+                        queue.push([nr, nc]);
+                    }
+                }
+                if (canEscape) break;
             }
+    
             if (canEscape) {
-                jammersToMove.push(jammer);
+                if (board[r][c]?.state === 'roaming') {
+                    jammersToMove.push({ from: { r, c }, piece: board[r][c] });
+                }
             } else {
-                jammersToCapture.push(jammer);
+                jammersToCapture.push({ r, c });
             }
         }
-
-        const boardAfterMove = JSON.parse(JSON.stringify(board));
-        const movePromises = [];
-        jammersToCapture.forEach(jammer => {
-            boardAfterMove[jammer.from.r][jammer.from.c] = { ...RICE_PIECES[0] };
+    
+        jammersToCapture.forEach(({ r, c }) => {
+            board[r][c] = { ...RICE_PIECES[0] };
         });
-
+    
         if (jammersToMove.length > 0) {
-            const reservedDestinations = new Set();
             for (let i = jammersToMove.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [jammersToMove[i], jammersToMove[j]] = [jammersToMove[j], jammersToMove[i]];
             }
-            const finalMoves = [];
-            jammersToMove.forEach(jammer => {
+    
+            const movePromises = [];
+            const boardAfterMove = JSON.parse(JSON.stringify(board));
+            const movedFromKeys = new Set();
+    
+            for (const jammer of jammersToMove) {
                 const { r, c } = jammer.from;
-                let bestMove = null;
-                const availableMoves = [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]
-                    .filter(([nr, nc]) => {
-                        if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE) return false;
-                        if (nr === HOLD_CELL.row && nc === HOLD_CELL.col) return false;
-                        if (tempBlockedCells.has(`${nr},${nc}`)) return false;
-                        const key = `${nr},${nc}`;
-                        if (reservedDestinations.has(key)) return false;
-                        const neighborPiece = board[nr][nc];
-                        return !neighborPiece || neighborPiece.state === 'roaming';
-                    });
+                const availableMoves = [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].filter(([nr, nc]) => {
+                    if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE) return false;
+                    if (nr === HOLD_CELL.row && nc === HOLD_CELL.col) return false;
+                    if (tempBlockedCells.has(`${nr},${nc}`)) return false;
+                    return !boardAfterMove[nr][nc];
+                });
+    
                 if (availableMoves.length > 0) {
-                    bestMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+                    const [toR, toC] = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+                    boardAfterMove[r][c] = null;
+                    boardAfterMove[toR][toC] = jammer.piece;
+                    movePromises.push(animatePieceMove(r, c, toR, toC, jammer.piece));
+                    movedFromKeys.add(`${r},${c}`);
                 }
-                if (bestMove) {
-                    const [nr, nc] = bestMove;
-                    reservedDestinations.add(`${nr},${nc}`);
-                    finalMoves.push({ ...jammer, to: { r: nr, c: nc } });
-                } else {
-                    finalMoves.push({ ...jammer, to: jammer.from });
-                }
-            });
-
-            finalMoves.forEach(move => {
-                if (move.to.r !== move.from.r || move.to.c !== move.from.c) {
-                    const cell = document.querySelector(`.cell[data-row="${move.from.r}"][data-col="${move.from.c}"]`);
-                    if (cell?.querySelector('.piece')) cell.querySelector('.piece').style.visibility = 'hidden';
-                }
-            });
-            finalMoves.forEach(move => { boardAfterMove[move.from.r][move.from.c] = null; });
-            finalMoves.forEach(move => {
-                boardAfterMove[move.to.r][move.to.c] = move.piece;
-                if (move.to.r !== move.from.r || move.to.c !== move.from.c) {
-                    movePromises.push(animatePieceMove(move.from.r, move.from.c, move.to.r, move.to.c, move.piece));
-                }
-            });
-        }
-        board = boardAfterMove;
-        if (movePromises.length > 0 || jammersToCapture.length > 0) {
-            await Promise.all(movePromises);
+            }
+            
+            if (movePromises.length > 0) {
+                movedFromKeys.forEach(key => {
+                    const [r, c] = key.split(',').map(Number);
+                    const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+                    if (cell?.querySelector('.piece')) {
+                        cell.querySelector('.piece').style.visibility = 'hidden';
+                    }
+                });
+    
+                board = boardAfterMove;
+                await Promise.all(movePromises);
+            }
         }
     };
+    
+    const _simulateMerges = (simBoard, placement) => {
+        let totalScore = 0;
+        let chainCount = 0;
+        let lastChainScore = 0;
+        let hasChainReaction;
+        
+        const tempBoard = JSON.parse(JSON.stringify(simBoard));
+    
+        do {
+            hasChainReaction = false;
+            const groupBoard = JSON.parse(JSON.stringify(tempBoard));
+            const mergesThisTurn = [];
+    
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (groupBoard[r][c]) {
+                        const group = findConnectedGroup(r, c, groupBoard);
+                        if (group.length >= 3) {
+                            const piece = groupBoard[r][c];
+                            const pieceSet = RICE_PIECES.some(p => p.emoji === piece.emoji) ? RICE_PIECES : FRUIT_PIECES;
+                            const isMaxLevel = pieceSet.findIndex(p => p.emoji === piece.emoji) === pieceSet.length - 1;
+                            if (!isMaxLevel) {
+                                mergesThisTurn.push({ group, piece, pieceSet });
+                                group.forEach(({ r: gr, c: gc }) => groupBoard[gr][gc] = null);
+                            }
+                        }
+                    }
+                }
+            }
+    
+            if (mergesThisTurn.length > 0) {
+                hasChainReaction = true;
+                chainCount++;
+                const multiBonus = mergesThisTurn.length > 1 ? (1 + (mergesThisTurn.length -1) * 0.5) : 1;
+                for (const { group, piece, pieceSet } of mergesThisTurn) {
+                    const nextIndex = pieceSet.findIndex(p => p.emoji === piece.emoji) + 1;
+                    const evolvedPiece = pieceSet[nextIndex];
+                    
+                    let { totalScore: score } = calculateGroupScore(evolvedPiece, chainCount, lastChainScore);
+                    score = Math.floor(score * multiBonus);
+                    totalScore += score;
+                    lastChainScore = score;
+                    
+                    let target;
+                    const lastPlacedInGroup = placement && group.find(({r, c}) => r === placement.row && c === placement.col);
+                    if (lastPlacedInGroup) {
+                        target = lastPlacedInGroup;
+                    } else {
+                        target = group.sort((a,b) => b.r - a.r || a.c - b.c)[0];
+                    }
+                    const { r: targetRow, c: targetCol } = target;
+    
+                    group.forEach(({ r, c }) => tempBoard[r][c] = null);
+                    if (nextIndex < pieceSet.length) {
+                        tempBoard[targetRow][targetCol] = { ...evolvedPiece };
+                    }
+                }
+            }
+        } while (hasChainReaction);
+    
+        return { score: totalScore, chains: chainCount };
+    };
 
-    const applySunItem = async (row, col) => {
+    const resolveSunItem = (row, col) => {
         const neighbors = [[row - 1, col], [row + 1, col], [row, col - 1], [row, col + 1]]
             .filter(([r, c]) => r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE 
-                && board[r][c] && !board[r][c].isObstacle && board[r][c].state !== 'roaming' && !board[r][c].isItem);
+                && board[r][c] && !board[r][c].isObstacle && board[r][c].state !== 'roaming' && board[r][c].state !== 'just_placed' && !board[r][c].isItem);
         let bestOption = null;
-        for (const [nr, nc] of neighbors) {
-            const pieceToCopy = board[nr][nc];
+        
+        const uniqueNeighborPieces = neighbors.reduce((acc, [nr, nc]) => {
+            const piece = board[nr][nc];
+            if (!acc.some(p => p.emoji === piece.emoji)) {
+                acc.push(piece);
+            }
+            return acc;
+        }, []);
+        
+        for (const pieceToCopy of uniqueNeighborPieces) {
             const tempBoard = JSON.parse(JSON.stringify(board));
-            tempBoard[row][col] = { ...pieceToCopy };
+            tempBoard[row][col] = { ...pieceToCopy, isItem: false };
             const group = findConnectedGroup(row, col, tempBoard);
             if (group.length >= 3) {
-                const { score, chains } = _processMergesInternal(tempBoard, { row, col });
+                const { score, chains } = _simulateMerges(tempBoard, { row, col });
                 if (!bestOption || chains > bestOption.chains || (chains === bestOption.chains && score > bestOption.score)) {
                     bestOption = { piece: pieceToCopy, score: score, chains: chains };
                 }
             }
         }
         if (bestOption) {
-            board[row][col] = { ...bestOption.piece };
-            return true;
+            return { ...bestOption.piece }; 
         } else {
-            board[row][col] = { emoji: '🌧️', isObstacle: true, level: 0 };
-            return true;
+            return { ...FRUIT_PIECES[0] }; 
         }
-    };
-
-    const applyItemEffect = async (row, col, item) => {
-        let itemUsed = false;
-        if (item.name === 'bear') {
-            const piece = board[row]?.[col];
-            if (piece) {
-                if (piece.emoji === '👨') {
-                    board[row][col] = { ...RICE_PIECES[0] };
-                    itemUsed = true;
-                }
-                else if (!piece.isItem) {
-                    board[row][col] = null;
-                    itemUsed = true;
-                }
-            }
-        } else if (item.name === 'sun') {
-            if (!board[row][col]) {
-                itemUsed = await applySunItem(row, col);
-            }
-        } else if (['cherry', 'orange', 'grape'].includes(item.name)) {
-            if (!board[row][col]) {
-                const pieceData = FRUIT_PIECES.find(p => p.emoji === item.emoji);
-                if (pieceData) {
-                    board[row][col] = { ...pieceData };
-                    itemUsed = true;
-                }
-            }
-        }
-        return itemUsed;
     };
     
     const handleHold = () => {
@@ -531,25 +641,32 @@ document.addEventListener('DOMContentLoaded', () => {
             generateNextPiece();
         }
     };
-
+    
     const advanceTurn = async (placement) => {
-        // 1. プレイヤーの行動を先にボードに反映させる
-        if (placement.piece.isItem) {
-            await applyItemEffect(placement.row, placement.col, placement.piece);
-        } else {
-            board[placement.row][placement.col] = { ...placement.piece };
-        }
+        const pieceToPlace = { ...placement.piece, isItem: false };
         
-        // 2. 最初の合成処理
+        if (pieceToPlace.emoji === JAMMER_MAN.emoji) {
+            pieceToPlace.state = 'just_placed';
+        }
+        board[placement.row][placement.col] = pieceToPlace;
+
+        renderBoard(); 
+        
         await processAllMerges(true, placement);
-
-        // 3. おじゃまピースの移動・捕獲（この段階ではプレイヤーが置いたマスは壁とみなさない）
         await moveAndCaptureJammers();
-
-        // 4. 最終的な合成処理（ごはん化後のマージなど）
         await processAllMerges(true, placement);
     };
 
+    const activateNewJammers = () => {
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (board[r][c]?.state === 'just_placed') {
+                    board[r][c].state = 'roaming';
+                }
+            }
+        }
+    };
+    
     const handleCellClick = async (e) => {
         e.preventDefault();
         if (gameOver || isProcessing) return;
@@ -561,54 +678,57 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = parseInt(target.dataset.row);
             const col = parseInt(target.dataset.col);
 
+            const pieceInHand = activeItem || nextPiece;
+            if (!pieceInHand) {
+                isProcessing = false;
+                return;
+            }
+
             if (row === HOLD_CELL.row && col === HOLD_CELL.col) {
                 handleHold();
             } else {
-                const pieceInHand = activeItem || nextPiece;
-                const placement = { row, col, piece: pieceInHand };
                 let turnIsValid = false;
+                let finalPieceToPlace = pieceInHand;
+                let actionType = 'place';
 
-                // 熊アイテムの即時発動
-                if (pieceInHand?.name === 'bear' && board[row][col]) {
-                    await advanceTurn(placement); // advanceTurnにすべてを任せる
+                if (pieceInHand.name === 'bear') {
+                    if (board[row][col]) {
+                        actionType = 'erase';
+                        turnIsValid = true;
+                    }
+                } else if (!board[row][col]) {
+                    if (pieceInHand.name === 'sun') {
+                        finalPieceToPlace = resolveSunItem(row, col);
+                    }
+                    turnIsValid = true;
+                }
+
+                if (turnIsValid) {
+                    const placement = { row, col, piece: finalPieceToPlace };
+
                     if (activeItem) {
-                        itemCounts.bear--;
+                        itemCounts[activeItem.name]--;
                         resetItemSelection();
                     } else {
                         nextPiece = null;
                     }
-                    turnIsValid = true;
-                } else { // その他のアクション
-                    // 先におじゃまを動かす
-                    const tempBlocked = new Set([`${row},${col}`]);
-                    await moveAndCaptureJammers(tempBlocked);
-                    
-                    // その後でプレイヤーの行動を処理
-                    if (activeItem) { // ショップアイテム
-                        if (await applyItemEffect(row, col, activeItem)) {
-                           itemCounts[activeItem.name]--;
-                           resetItemSelection();
-                           await processAllMerges(true, placement); // 配置後のマージのみ
-                           turnIsValid = true;
+
+                    if (actionType === 'erase') {
+                        const targetPiece = board[row][col];
+                        if (targetPiece.emoji === JAMMER_MAN.emoji) {
+                            board[row][col] = { ...RICE_PIECES[0] };
                         } else {
-                            resetItemSelection();
+                            board[row][col] = null;
                         }
-                    } else if (nextPiece?.isItem) { // 自然発生アイテム
-                        if(await applyItemEffect(row, col, nextPiece)) {
-                            nextPiece = null;
-                            await processAllMerges(true, placement); // 配置後のマージのみ
-                            turnIsValid = true;
-                        }
-                    } else if (nextPiece && !board[row][col]) { // 通常ピース
-                        board[row][col] = { ...nextPiece };
-                        nextPiece = null;
-                        await processAllMerges(true, placement); // 配置後のマージのみ
-                        turnIsValid = true;
+                        renderBoard();
+                        await moveAndCaptureJammers();
+                        await processAllMerges(true, {row, col});
+                    } else { 
+                        await advanceTurn(placement);
                     }
-                }
-                
-                if (turnIsValid) {
-                    lastPlaced = placement;
+                    
+                    lastPlaced = { row, col };
+                    activateNewJammers();
                     updateScore();
                     checkGameOver();
                     if (!gameOver && !nextPiece && !activeItem) {
@@ -670,6 +790,11 @@ document.addEventListener('DOMContentLoaded', () => {
         lastChainScore = 0;
         isProcessing = false;
         itemCounts = Object.keys(ITEMS).reduce((acc, key) => ({ ...acc, [key]: ITEMS[key].initialCount }), {});
+        
+        normalBag = [];
+        rareBag = [];
+        hasRareBagChance = false;
+
         updateScore();
         const availableCells = [];
         for (let r = 0; r < BOARD_SIZE; r++) {

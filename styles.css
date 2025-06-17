@@ -7,22 +7,22 @@ body {
     min-height: 100vh;
     margin: 0;
     padding-top: 20px;
-    background-color: #f5deb3; /* 木目調背景 */
+    background-color: #e3f2fd; /* ごく薄い空色 */
     box-sizing: border-box;
 }
 
 .game-container {
     text-align: center;
-    background-color: #fffaf0; /* フローラルホワイト */
+    background-color: #ffffff; /* 雲のような白 */
     padding: 20px;
     border-radius: 15px;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
     width: 380px;
 }
 
 h1 {
     font-size: 28px;
-    color: #d2691e; /* チョコレート色 */
+    color: #424242; /* ダークグレー */
     margin: 0 0 15px 0;
 }
 
@@ -32,7 +32,7 @@ h1 {
     width: 100%;
     margin-bottom: 15px;
     font-size: 18px;
-    color: #8B4513; /* サドルブラウン */
+    color: #424242; /* ダークグレー */
     font-weight: bold;
 }
 
@@ -49,7 +49,7 @@ button {
     cursor: pointer;
     border: none;
     border-radius: 8px;
-    background-color: #ffb6c1; /* ライトピンク */
+    background-color: #ffb74d; /* 元気なオレンジ色 */
     color: white;
     font-weight: bold;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
@@ -57,7 +57,7 @@ button {
 }
 
 @media (hover: hover) {
-    button:hover { background-color: #ff69b4; transform: translateY(-1px); }
+    button:hover { background-color: #fb8c00; transform: translateY(-1px); }
 }
 
 button:active {
@@ -74,7 +74,7 @@ button:disabled { background-color: #cccccc; cursor: not-allowed; transform: non
     grid-template-columns: repeat(6, 60px);
     grid-template-rows: repeat(6, 60px);
     gap: 2px;
-    background-color: #dcdcdc;
+    background-color: #c5e1a5; /* グリッド線の色も合わせる */
     padding: 5px;
     border-radius: 10px;
     transition: box-shadow 0.3s ease-out;
@@ -97,16 +97,15 @@ button:disabled { background-color: #cccccc; cursor: not-allowed; transform: non
     position: relative;
     user-select: none;
     overflow: visible;
+    background-color: #f1f8e9; /* 若葉のような薄い緑 */
 }
-.cell-color-a { background-color: #ffd1dc; }
-.cell-color-b { background-color: #d4f4dd; }
 
 .cell.occupied {
     box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
 }
 
 .cell.hold {
-    background-color: #add8e6;
+    background-color: #90caf9; /* ホールドマスも空色系に */
 }
 .cell.hold::before {
     content: '🍽️'; font-size: 50px; position: absolute;
@@ -125,7 +124,7 @@ button:disabled { background-color: #cccccc; cursor: not-allowed; transform: non
 
 @media (hover: hover) {
     .board.item-mode .cell:not(.occupied):not(.hold):hover {
-        box-shadow: inset 0 0 10px rgba(255, 105, 180, 0.7);
+        box-shadow: inset 0 0 10px rgba(255, 183, 77, 0.7);
     }
 }
 
@@ -188,7 +187,7 @@ button:disabled { background-color: #cccccc; cursor: not-allowed; transform: non
 }
 .score-popup {
     position: absolute;
-    color: #ff4500;
+    color: #f57c00; /* スコアの色もオレンジ系に */
     font-size: 18px;
     font-weight: bold;
     animation: score-popup 0.7s ease-out forwards;
@@ -224,8 +223,8 @@ button:disabled { background-color: #cccccc; cursor: not-allowed; transform: non
 }
 
 #hint-area { margin-top: 15px; text-align: left; }
-#hint-area h3 { margin: 10px 0 5px; color: #d2691e; }
-#hint-area p { margin: 5px 0; font-size: 14px; color: #8B4513; word-break: break-all; }
+#hint-area h3 { margin: 10px 0 5px; color: #424242; }
+#hint-area p { margin: 5px 0; font-size: 14px; color: #424242; word-break: break-all; }
 
 /* モーダル */
 .modal {
@@ -249,16 +248,16 @@ button:disabled { background-color: #cccccc; cursor: not-allowed; transform: non
     position: relative;
     text-align: center;
 }
-.modal-content h2 { color: #d2691e; }
+.modal-content h2 { color: #424242; }
 .close {
     position: absolute;
     top: 10px;
     right: 10px;
     font-size: 24px;
     cursor: pointer;
-    color: #8B4513;
+    color: #424242;
 }
-#item-list button { display: block; width: 100%; margin: 8px 0; background-color: #d4f4dd; color: #333; }
+#item-list button { display: block; width: 100%; margin: 8px 0; background-color: #c5e1a5; color: #333; }
 
 #loading {
     display: flex;
